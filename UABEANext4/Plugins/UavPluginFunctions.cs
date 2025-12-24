@@ -1,6 +1,8 @@
-﻿using Avalonia.Platform.Storage;
+﻿using Avalonia.Controls;
+using Avalonia.Platform.Storage;
 using CommunityToolkit.Mvvm.DependencyInjection;
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using UABEANext4.Interfaces;
 using UABEANext4.Services;
@@ -54,5 +56,19 @@ public class UavPluginFunctions : IUavPluginFunctions
     {
         var messageBoxVm = new MessageBoxViewModel(title, message, MessageBoxType.OK);
         await _dialogService.ShowDialog(messageBoxVm);
+    }
+
+    public async Task<string?> ShowMessageDialogCustom(string title, string message, params string[] buttonLabels)
+    {
+        var dialogService = Ioc.Default.GetRequiredService<IDialogService>();
+        var messageBoxVm = new MessageBoxViewModel(title, message, MessageBoxType.Custom, buttonLabels.ToList());
+        var res = await dialogService.ShowDialog(messageBoxVm) ?? MessageBoxResult.Unknown;
+        return res switch
+        {
+            MessageBoxResult.CustomButtonA => buttonLabels[2],
+            MessageBoxResult.CustomButtonB => buttonLabels[1],
+            MessageBoxResult.CustomButtonC => buttonLabels[0],
+            _ => string.Empty,
+        };
     }
 }

@@ -28,9 +28,9 @@ public class MessageBoxUtil
         var res = await dialogService.ShowDialog(messageBoxVm) ?? MessageBoxResult.Unknown;
         return res switch
         {
-            MessageBoxResult.CustomButtonA => buttons[0],
+            MessageBoxResult.CustomButtonA => buttons[2],
             MessageBoxResult.CustomButtonB => buttons[1],
-            MessageBoxResult.CustomButtonC => buttons[2],
+            MessageBoxResult.CustomButtonC => buttons[0],
             _ => string.Empty,
         };
     }

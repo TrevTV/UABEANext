@@ -10,4 +10,5 @@ public interface IUavPluginFunctions
     public Task<string?> ShowOpenFolderDialog(FolderPickerOpenOptions options);
     public Task<T?> ShowDialog<T>(IDialogAware<T> dialogAware);
     public Task ShowMessageDialog(string title, string message);
+    public Task<string?> ShowMessageDialogCustom(string title, string message, params string[] buttonLabels);
 }

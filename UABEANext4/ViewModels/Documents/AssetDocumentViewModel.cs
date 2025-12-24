@@ -349,11 +349,15 @@ public partial class AssetDocumentViewModel : Document
         }
     }
 
-    public void Import()
+    public async void Import()
     {
         if (SelectedItems.Count > 1)
         {
-            ImportBatch(SelectedItems.ToList());
+            string res = await MessageBoxUtil.ShowDialogCustom("Import Options", "Would you like to batch import or replace many with one asset?", "Replace", "Import", "Cancel");
+            if (res == "Import")
+                ImportBatch(SelectedItems.ToList());
+            else if (res == "Replace")
+                ReplaceMany(SelectedItems.ToList());
         }
         else if (SelectedItems.Count == 1)
         {
@@ -436,6 +440,84 @@ public partial class AssetDocumentViewModel : Document
         }
 
     dirtyFiles:
+        foreach (var fileName in fileNamesToDirty)
+        {
+            var fileToDirty = Workspace.ItemLookup[fileName];
+            Workspace.Dirty(fileToDirty);
+        }
+    }
+
+    public async void ReplaceMany(List<AssetInst> assets)
+    {
+        var storageProvider = StorageService.GetStorageProvider();
+        if (storageProvider is null)
+        {
+            return;
+        }
+
+        var result = await storageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = "Choose file to import",
+            AllowMultiple = true,
+            FileTypeFilter = new FilePickerFileType[]
+            {
+                new FilePickerFileType("UABEA json dump (*.json)") { Patterns = new[] { "*.json" } },
+                new FilePickerFileType("UABE txt dump (*.txt)") { Patterns = new[] { "*.txt" } },
+                new FilePickerFileType("Raw dump (*.dat)") { Patterns = new[] { "*.dat" } },
+                new FilePickerFileType("Raw dump (*.*)") { Patterns = new[] { "*" } },
+            },
+        });
+
+        var files = FileDialogUtils.GetOpenFileDialogFiles(result);
+        if (files == null || files.Length == 0)
+            return;
+
+        var file = files[0];
+
+        var fileNamesToDirty = new HashSet<string>();
+
+        foreach (AssetInst asset in assets)
+        {
+            using var fs = File.OpenRead(file);
+
+            Workspace.CheckAndSetMonoTempGenerators(asset.FileInstance, asset);
+            var importer = new AssetImport(fs, Workspace.Manager.GetRefTypeManager(asset.FileInstance));
+
+            byte[]? data = null;
+            string? exception = "";
+
+            if (file.EndsWith(".json") || file.EndsWith(".txt"))
+            {
+                if (file.EndsWith(".json"))
+                {
+                    var baseField = Workspace.GetTemplateField(asset);
+                    if (baseField != null)
+                    {
+                        data = importer.ImportJsonAsset(baseField, out exception);
+                    }
+                    else
+                    {
+                        // handle template read error
+                    }
+                }
+                else if (file.EndsWith(".txt"))
+                {
+                    data = importer.ImportTextAsset(out exception);
+                }
+            }
+            else //if (file.EndsWith(".dat"))
+            {
+                using var stream = File.OpenRead(file);
+                data = importer.ImportRawAsset();
+            }
+
+            if (data != null)
+            {
+                asset.UpdateAssetDataAndRow(Workspace, data);
+                fileNamesToDirty.Add(asset.FileInstance.name);
+            }
+        }
+
         foreach (var fileName in fileNamesToDirty)
         {
             var fileToDirty = Workspace.ItemLookup[fileName];
